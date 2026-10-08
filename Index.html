@@ -87,7 +87,7 @@ textarea{min-height:120px;resize:vertical}
 <script>
 "use strict";
 const CFG={WA:"https://wa.me/966558011309",BASE:9,INCL:10,PER:1,PAY:"حوّل المبلغ على رقم الحساب / STC Pay الخاص بالمتجر، ثم أرسل صورة الإيصال لتأكيد التسليم."};
-const API="PASTE_YOUR_WEB_APP_URL_HERE",db=!API.startsWith("PASTE");
+const API="https://script.google.com/macros/s/AKfycbym0XPG5nODWPV9vMh-yVygYQ7E214qS36DvbMmGXpuNaApdHNLdjo_WYQG2ph8EqbZ/exec",db=!API.startsWith("PASTE");
 const api={async post(b){const r=await fetch(API,{method:"POST",body:JSON.stringify(b)});return r.json()},async status(id){const r=await fetch(API+"?id="+encodeURIComponent(id)+"&t="+Date.now());return r.json()}};
 const SUBJ=[["الرياضيات","➗"],["العلوم","🔬"],["اللغة العربية","📖"],["اللغة الإنجليزية","🔤"],["المهارات الرقمية","💻"],["المهارات الحياتية","🌱"],["التفكير الناقد","🧠"],["التربية الفنية","🎨"],["المهارات الاجتماعية","🤝"],["التربية الإسلامية","🕌"],["غير ذلك","✨"]];
 const GR=["أول ابتدائي","ثاني ابتدائي","ثالث ابتدائي","رابع ابتدائي","خامس ابتدائي","سادس ابتدائي","أول متوسط","ثاني متوسط","ثالث متوسط","أول ثانوي","ثاني ثانوي","ثالث ثانوي","غير ذلك"];
