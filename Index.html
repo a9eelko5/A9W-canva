@@ -80,6 +80,7 @@ textarea{min-height:120px;resize:vertical}
 .sk{height:120px;border-radius:20px;margin-bottom:12px;background:linear-gradient(90deg,var(--soft),var(--bd),var(--soft));background-size:200% 100%;animation:sh 1.2s infinite}@keyframes sh{to{background-position:-200% 0}}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom,0px));background:var(--tx);color:var(--bg);padding:10px 18px;border-radius:99px;font-weight:700;font-size:14px;z-index:20;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:in .25s}.toast.bad{background:var(--bad);color:#fff}
 .hid{display:none!important}
+.tag{display:inline-block;padding:2px 12px;border-radius:99px;background:var(--soft);color:var(--pr);font-size:13px;font-weight:700}
 </style>
 </head>
 <body>
@@ -98,6 +99,8 @@ const toEn=s=>String(s).replace(/[٠-٩]/g,d=>"٠١٢٣٤٥٦٧٨٩".indexOf(d))
 const price=(t,p)=>t==="small"?CFG.BASE:CFG.BASE+Math.max(0,(p||0)-CFG.INCL)*CFG.PER;
 const stepOf=s=>!s?1:s.paid?4:s.link?3:s.stage==="design"?2:1;
 const ls={get(k,d=null){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+const orders={get:()=>ls.get("orders",[])||[],add(id,total){const l=this.get(),o=l.find(x=>x.id===id);this.set(l.filter(x=>x.id!==id),{id,total:total||o?.total||0,at:o?.at||Date.now()})},set(l,o){ls.set("orders",[o,...l].slice(0,20))},del(id){ls.set("orders",this.get().filter(x=>x.id!==id))}};
+{const m=ls.get("my");if(m&&!orders.get().length)orders.add(m.id,m.total)}
 const fresh=()=>({type:"small",pages:11,phone:"",subject:"",grade:"",desc:""});
 
 let view="home",unsubs=[],busy=false,F={...fresh(),...(ls.get("draft")||{})};
@@ -116,8 +119,11 @@ const A={
   home:()=>go("home"),
   theme(){const d=document.documentElement,cur=d.dataset.theme||(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"),n=cur==="dark"?"light":"dark";d.dataset.theme=n;ls.set("theme",n)},
   order(b){F.type=b.dataset.t;ls.set("draft",F);go("form")},
-  track(){const c=toEn($("#tc").value).trim().toUpperCase();if(!/^[A-Z0-9]{6}$/.test(c))return toast("رقم الطلب لازم يكون ٦ خانات","bad");ls.set("my",{id:c,total:0});go("status")},
+  track(){const c=toEn($("#tc").value).trim().toUpperCase();if(!/^[A-Z0-9]{6}$/.test(c))return toast("رقم الطلب لازم يكون ٦ خانات","bad");ls.set("my",{id:c,total:0});orders.add(c,0);go("status")},
   mine:()=>go("status"),
+  open(b){const o=orders.get().find(x=>x.id===b.dataset.id);ls.set("my",{id:b.dataset.id,total:o?.total||0});go("status")},
+  rm(b){orders.del(b.dataset.id);go("home")},
+  goto(){$("#mine")?.scrollIntoView({behavior:"smooth"})},
   seg(b){F.type=b.dataset.t;save();b.parentNode.querySelectorAll("button").forEach(x=>{x.classList.toggle("on",x===b);x.setAttribute("aria-pressed",x===b)});$("#pgw").classList.toggle("hid",F.type!=="big");upd()},
   chip(b){F.subject=b.dataset.s;save();b.parentNode.querySelectorAll("button").forEach(x=>{x.classList.toggle("on",x===b);x.setAttribute("aria-pressed",x===b)});$("#grw").classList.toggle("hid",F.subject==="غير ذلك");err("sb")},
   pg(b){F.pages=Math.min(200,Math.max(11,(F.pages||11)+ +b.dataset.d));$("#pg").value=F.pages;save();upd();err("pg")},
@@ -134,15 +140,14 @@ function save(){ls.set("draft",F)}
 /* ---------- storefront ---------- */
 const chipBtn=(s,i)=>`<button type="button" data-a="chip" data-s="${s}" class="${F.subject===s?"on":""}" aria-pressed="${F.subject===s}">${i} ${s}</button>`;
 function showHome(){
-  const my=ls.get("my");
-  render(`<nav><div class="logo"><i>🎨</i>عروض كانفا</div><div style="display:flex;gap:10px;align-items:center"><a class="lnk" href="${CFG.WA}" target="_blank" rel="noopener">💬 الدعم</a><button class="ib" data-a="theme" aria-label="تبديل الوضع">🌓</button></div></nav>
+  const ol=orders.get();
+  render(`<nav><div class="logo"><i>🎨</i>عروض كانفا</div><div style="display:flex;gap:10px;align-items:center">${ol.length?`<button class="lnk" data-a="goto">📦 طلباتي</button>`:""}<a class="lnk" href="${CFG.WA}" target="_blank" rel="noopener">💬 الدعم</a><button class="ib" data-a="theme" aria-label="تبديل الوضع">🌓</button></div></nav>
   <section class="hero"><h1>عرضك التقديمي، <span>مصمَّم على كانفا</span> حسب طلبك</h1>
   <p>اكتب موضوع العرض والمادة والصف، ونرجّع لك عرض مرتب وجاهز بأقل سعر.</p>
   <div class="cta"><button class="btn" data-a="order" data-t="small">اطلب عرضك الآن</button></div>
   <div class="trust"><span>⚡ تنفيذ سريع</span><span>💳 تدفع بعد ما تشوف العرض</span><span>✍️ تعديلات مجانية</span></div>
   <div class="mock" aria-hidden="true"><b></b><b></b><b>📊</b></div>
   <div class="kp"><div><b>${CFG.BASE} ر</b><span>تبدأ من</span></div><div><b>١٢</b><span>صف دراسي</span></div><div><b>١٠+</b><span>مادة</span></div></div></section>
-  ${my&&!my.done?`<button class="btn s" data-a="mine" style="margin-top:22px">📦 متابعة طلبي الأخير (${esc(my.id)})</button>`:""}
   <h2 class="t">الأسعار</h2>
   <div class="grid g2" style="row-gap:22px">
    <div class="card"><h3>عرض تقديمي صغير</h3><div class="price">${CFG.BASE} ريال</div>
@@ -160,8 +165,12 @@ function showHome(){
   <details><summary>متى أدفع؟</summary><p>بعد ما نرسل لك رابط العرض وتشوفه، مو قبل.</p></details>
   <details><summary>أي المواد والصفوف متوفرة؟</summary><p>كل المواد من أول ابتدائي إلى ثالث ثانوي، ولو موضوعك غير ذلك اختر "غير ذلك" واكتب وصفه.</p></details>
   <details><summary>كيف أعرف حالة طلبي؟</summary><p>بعد الطلب يظهر لك رقم طلب، حطه في خانة التتبّع في أي وقت ومن أي جهاز.</p></details>
+  ${ol.length?`<h2 class="t" id="mine">📦 طلباتي</h2><p style="text-align:center;color:var(--mu);margin:-8px 0 14px">طلعت من الموقع بالغلط؟ طلباتك محفوظة هنا، افتح طلبك وتابعه أو استلم عرضك.</p>${ol.map(o=>`<div class="card oc" style="margin-bottom:10px" data-id="${esc(o.id)}"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div><b style="font-family:monospace;font-size:18px;letter-spacing:2px">#${esc(o.id)}</b><div style="color:var(--mu);font-size:13px">${new Date(o.at).toLocaleDateString("ar-SA")}${o.total?" · "+o.total+" ريال":""}</div></div><span class="tag st">…</span></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn sm oo" data-a="open" data-id="${esc(o.id)}" style="flex:1">فتح الطلب</button><button class="btn s sm" data-a="rm" data-id="${esc(o.id)}">إزالة</button></div></div>`).join("")}`:""}
   <div class="card" style="text-align:center;margin-top:26px"><div style="font-size:34px">🛟</div><b style="font-size:18px">الدعم الفني</b><p style="margin:6px 0 14px;color:var(--mu)">عندك استفسار أو مشكلة؟ تواصل معنا على واتساب.</p><a class="btn" href="${CFG.WA}" target="_blank" rel="noopener">💬 تواصل مع الدعم الفني</a></div>
   <footer>© عروض كانفا حسب الطلب</footer>`);
+  if(db)ol.forEach(async o=>{try{const s=await api.status(o.id),n=stepOf(s.found?s:null),c=app.querySelector(`.oc[data-id="${o.id}"]`);if(!c)return;
+    c.querySelector(".st").textContent=["","تم استلام الطلب","جاري التصميم","جاهز للدفع 💳","تم التسليم ✅"][n];
+    c.querySelector(".oo").textContent=n===4?"📥 استلام العرض":n===3?"👀 شاهد المعاينة":"فتح الطلب"}catch{}});
 }
 
 function showForm(){
@@ -198,14 +207,14 @@ async function submit(){
     const big=F.type==="big",pages=big?F.pages:10;
     const r=await api.post({a:"create",order:{phone:toEn(F.phone).trim(),type:F.type,pages,subject:F.subject,grade:F.subject==="غير ذلك"?"":F.grade,desc:F.desc.trim()}});
     if(!r||!r.id)throw 0;
-    ls.set("my",{id:r.id,total:r.total});ls.set("draft",null);F=fresh();go("status");
+    ls.set("my",{id:r.id,total:r.total});orders.add(r.id,r.total);ls.set("draft",null);F=fresh();go("status");
   }catch{toast("تعذّر إرسال الطلب، حاول مرة ثانية","bad");const b2=$("#go");if(b2){b2.disabled=false;b2.textContent="إتمام الطلب"}}
   finally{busy=false}
 }
 
 function showStatus(){
   const my=ls.get("my");if(!my){go("home");return}
-  const draw=(s,keep)=>{const n=stepOf(s),link=esc(s?.link),fin=esc(s?.final||s?.link);if(n===4&&!my.done){my.done=true;ls.set("my",my)}
+  const draw=(s,keep)=>{const n=stepOf(s),link=esc(s?.link),fin=esc(s?.final||s?.link);
     const sp=`<div class="stepper">${STEPS.map((t,i)=>{const d=i+1<n||n===4;return `<div class="${d?"d":i+1===n?"c":""}"><i>${d?"✓":i+1}</i>${t}</div>`}).join("")}</div>`;
     const body=n===4?`<div style="font-size:50px">🎉</div><h2>تم الدفع وتسليم العرض</h2><p style="color:var(--mu)">شكراً لك! هذا رابط عرضك:</p><a class="btn" href="${fin}" target="_blank" rel="noopener">فتح العرض</a>`
     :n===3?`<div style="font-size:50px">✅</div><h2>عرضك جاهز!</h2><p style="color:var(--mu)">شاهد معاينة العرض أولاً، ثم ادفع لاستلام نسختك النهائية.</p><p style="color:var(--mu);font-size:14px">ما عجبك؟ نسوي لك عرض جديد 💜</p><a class="btn s" href="${link}" target="_blank" rel="noopener">مشاهدة المعاينة</a><div class="code" style="letter-spacing:0;font-size:24px">${esc(s.price||my.total)} ريال</div><p style="color:var(--mu)">${esc(CFG.PAY)}</p>`
