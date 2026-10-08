@@ -1,0 +1,67 @@
+/**
+ * خادم الطلبات — Google Apps Script
+ * 1) غيّر KEY لمفتاح سري طويل (هذا هو "كلمة سر" لوحة الطلبات)
+ * 2) Deploy > New deployment > Web app > Execute as: Me > Who has access: Anyone
+ */
+const KEY = "A9@123@A9";
+const SHEET = "orders";
+const COLS = ["id","phone","type","pages","subject","grade","desc","total","at","stage","link","final","paid"];
+const BASE = 9, INCL = 10, PER = 1;
+
+function sh_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let s = ss.getSheetByName(SHEET);
+  if (!s) { s = ss.insertSheet(SHEET); s.getRange("A:M").setNumberFormat("@"); s.appendRow(COLS); }
+  return s;
+}
+function rows_() {
+  const v = sh_().getDataRange().getValues(); v.shift();
+  return v.filter(r => r[0] !== "").map(r => {
+    const o = {}; COLS.forEach((c, i) => o[c] = r[i] === undefined ? "" : r[i]);
+    o.id = String(o.id); o.phone = String(o.phone);
+    o.pages = Number(o.pages); o.total = Number(o.total); o.at = Number(o.at);
+    o.paid = String(o.paid).toLowerCase() === "true";
+    return o;
+  });
+}
+function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
+function price_(t, p) { return t === "big" ? BASE + Math.max(0, p - INCL) * PER : BASE; }
+
+// حالة الطلب للعميل (الرابط النهائي ما يرجع إلا بعد الدفع)
+function doGet(e) {
+  const id = String((e.parameter && e.parameter.id) || "").toUpperCase();
+  const o = rows_().find(r => r.id === id);
+  if (!o) return out_({ found: false });
+  return out_({ found: true, stage: o.stage, link: o.link, price: o.total, paid: o.paid, final: o.paid ? o.final : "" });
+}
+
+function doPost(e) {
+  const d = JSON.parse(e.postData.contents);
+  const lock = LockService.getScriptLock(); lock.waitLock(15000);
+  try {
+    if (d.a === "create") {
+      const x = d.order || {};
+      const pages = x.type === "big" ? parseInt(x.pages) : 10;
+      if (!/^05\d{8}$/.test(String(x.phone)) || !["small","big"].includes(x.type) || !(pages > 0) || (x.type === "big" && pages <= INCL) || pages > 200
+          || !x.subject || String(x.desc || "").trim().length < 5) return out_({ error: "invalid" });
+      const al = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", ids = rows_().map(r => r.id);
+      let id; do { id = ""; for (let i = 0; i < 6; i++) id += al[Math.floor(Math.random() * al.length)]; } while (ids.indexOf(id) >= 0);
+      const total = price_(x.type, pages);
+      sh_().appendRow([id, String(x.phone), x.type, pages, String(x.subject).slice(0, 60), String(x.grade || "").slice(0, 40), String(x.desc).trim().slice(0, 1500), total, Date.now(), "", "", "", "false"]);
+      return out_({ id: id, total: total });
+    }
+    if (d.key !== KEY) return out_({ error: "auth" });
+    if (d.a === "list") return out_({ orders: rows_() });
+    const s = sh_(), n = s.getLastRow();
+    if (n < 2) return out_({ error: "notfound" });
+    const i = s.getRange(2, 1, n - 1, 1).getValues().map(r => String(r[0])).indexOf(String(d.id));
+    if (i < 0) return out_({ error: "notfound" });
+    const row = i + 2;
+    if (d.a === "delete") { s.deleteRow(row); return out_({ ok: 1 }); }
+    if (d.a === "update") {
+      COLS.forEach((c, j) => { if (["stage","link","final","paid"].includes(c) && c in (d.patch || {})) s.getRange(row, j + 1).setValue(String(d.patch[c])); });
+      return out_({ ok: 1 });
+    }
+    return out_({ error: "unknown" });
+  } finally { lock.releaseLock(); }
+}
