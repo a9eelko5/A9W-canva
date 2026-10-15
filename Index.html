@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>عروض كانفا حسب الطلب</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="preconnect" href="https://script.google.com">
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap"></noscript>
 <style>
 :root{--bg:#f5f3fb;--card:#fff;--tx:#2a2744;--mu:#767394;--pr:#6c5ce7;--pr2:#2bb7c9;--b1:#6c5ce7;--b2:#8574f0;--bd:#e8e5f4;--soft:#eeebfb;--ok:#2fa36b;--bad:#d9534f;--sh:0 8px 28px rgba(80,66,160,.08);--r:20px;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -240,6 +240,7 @@ function showStatus(){
 }
 
 route();
+if(db)fetch(API+"?id=WARMUP&t="+Date.now()).catch(()=>{});
 </script>
 </body>
 </html>
