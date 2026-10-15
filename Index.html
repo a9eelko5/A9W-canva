@@ -187,6 +187,7 @@ function showHome(){
 }
 
 function showForm(){
+  if(db)fetch(API+"?id=WARMUP&t="+Date.now()).catch(()=>{});
   const big=F.type==="big",sb=F.subject;
   render(`<button class="back" data-a="home">→ رجوع</button><h2 class="ft">اطلب عرضك</h2>
   ${db?"":`<div class="note" id="dbw">⚠️ الموقع غير مربوط بالخادم بعد (انظر خطوات الإعداد).</div>`}
