@@ -94,6 +94,8 @@ textarea{min-height:130px;resize:vertical}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(92px + env(safe-area-inset-bottom,0px));background:var(--tx);color:var(--bg);padding:11px 20px;border-radius:99px;font-weight:600;font-size:14px;z-index:20;box-shadow:0 10px 28px rgba(0,0,0,.22);animation:in .25s}.toast.bad{background:var(--bad);color:#fff}
 .hid{display:none!important}
 .tag{display:inline-block;padding:3px 12px;border-radius:99px;background:var(--soft);color:var(--pr);font-size:13px;font-weight:600;margin:2px 0 2px 4px}
+.alinks{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-top:10px}
+.otp{text-align:center;letter-spacing:8px;font-size:24px;font-family:monospace}
 </style>
 </head>
 <body>
@@ -124,37 +126,71 @@ function toast(m,k=""){$(".toast")?.remove();const t=document.createElement("div
 function render(html,keep){const y=scrollY;app.innerHTML=`<div class="${keep?"":"v"}">${html}</div>`;scrollTo(0,keep?y:0)}
 
 addEventListener("hashchange",route);
-function route(){stop();({home:showHome,form:showForm,status:showStatus}[view]||showHome)()}
+function route(){stop();({home:showHome,form:showForm,status:showStatus,auth:showAuth,account:showAccount}[view]||showHome)()}
 function go(v){view=v;if(location.hash){try{history.replaceState(null,"",location.pathname+location.search)}catch{}}route()}
 
 /* ---------- actions (event delegation) ---------- */
 const A={
   home:()=>go("home"),
   theme(){const d=document.documentElement,cur=d.dataset.theme||(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"),n=cur==="dark"?"light":"dark";d.dataset.theme=n;ls.set("theme",n)},
-  order(b){F.type=b.dataset.t;ls.set("draft",F);go("form")},
+  async order(b){F.type=b.dataset.t;ls.set("draft",F);await ready;if(!user){after="form";authTab="login";return go("auth")}go("form")},
   track(){const c=toEn($("#tc").value).trim().toUpperCase();if(!/^[A-Z0-9]{6}$/.test(c))return toast("رقم الطلب لازم يكون ٦ خانات","bad");ls.set("my",{id:c,total:0});orders.add(c,0);go("status")},
   mine:()=>go("status"),
-  open(b){const o=orders.get().find(x=>x.id===b.dataset.id);ls.set("my",{id:b.dataset.id,total:o?.total||0});go("status")},
-  rm(b){orders.del(b.dataset.id);go("home")},
+  open(b){ls.set("my",{id:b.dataset.id,total:Number(b.dataset.total)||0});go("status")},
   goto(){$("#mine")?.scrollIntoView({behavior:"smooth"})},
   seg(b){F.type=b.dataset.t;save();b.parentNode.querySelectorAll("button").forEach(x=>{x.classList.toggle("on",x===b);x.setAttribute("aria-pressed",x===b)});$("#pgw").classList.toggle("hid",F.type!=="big");upd()},
   chip(b){F.subject=b.dataset.s;save();b.parentNode.querySelectorAll("button").forEach(x=>{x.classList.toggle("on",x===b);x.setAttribute("aria-pressed",x===b)});$("#grw").classList.toggle("hid",F.subject==="غير ذلك");err("sb")},
   pg(b){F.pages=Math.min(200,Math.max(11,(F.pages||11)+ +b.dataset.d));$("#pg").value=F.pages;save();upd();err("pg")},
   submit,
+  acct(){if(user)go("account");else{authTab="login";after=null;go("auth")}},
+  authgo(b){const e=$("#au-email");if(e)authEmail=e.value.trim().toLowerCase();authTab=b.dataset.m;showAuth()},
+  async logout(){try{await api.post({a:"logout",token:tok.get()})}catch{}tok.set("");user=null;toast("تم تسجيل الخروج");go("home")},
+  async doLogin(b){const email=gv("au-email").toLowerCase(),pw=($("#au-pw")||{}).value||"";authEmail=email;aerr();
+    if(!EMAIL_RE.test(email)||!pw)return aerr("اكتب الإيميل وكلمة السر");
+    const r=await authCall(b,{a:"login",email,password:pw});if(!r)return;
+    if(r.token)return done(r);
+    if(r.error==="unverified"){authTab="verify";toast("فعّل حسابك: أرسلنا لك رمز جديد ✉️");return showAuth()}
+    aerr(AMSG[r.error]||"تعذّر تسجيل الدخول")},
+  async doSignup(b){const name=gv("au-name"),email=gv("au-email").toLowerCase(),phone=toEn(gv("au-phone")),pw=$("#au-pw").value,pw2=$("#au-pw2").value;authEmail=email;aerr();
+    if(name.length<2)return aerr("اكتب اسمك");
+    if(!EMAIL_RE.test(email))return aerr("اكتب إيميل صحيح");
+    if(!/^05\d{8}$/.test(phone))return aerr("اكتب رقم جوال صحيح يبدأ بـ 05 (١٠ أرقام)");
+    if(pw.length<8)return aerr("كلمة السر ٨ أحرف على الأقل");
+    if(pw!==pw2)return aerr("كلمتا السر غير متطابقتين");
+    const r=await authCall(b,{a:"signup",name,email,phone,password:pw});if(!r)return;
+    if(r.verify){authTab="verify";toast("أرسلنا رمز التحقق إلى إيميلك ✉️");return showAuth()}
+    aerr(AMSG[r.error]||"تعذّر إنشاء الحساب")},
+  async doVerify(b){const code=toEn(gv("au-code"));aerr();
+    if(!/^\d{6}$/.test(code))return aerr("اكتب الرمز المكوّن من ٦ أرقام");
+    const r=await authCall(b,{a:"verify",email:authEmail,code});if(!r)return;
+    if(r.token)return done(r);
+    aerr(AMSG[r.error]||"تعذّر التحقق")},
+  async doResend(b){const r=await authCall(b,{a:"resend",email:authEmail});if(!r)return;
+    if(r.error)return aerr(AMSG[r.error]||"تعذّر الإرسال");toast("أرسلنا لك رمز جديد ✉️")},
+  async doForgot(b){const email=gv("au-email").toLowerCase();authEmail=email;aerr();
+    if(!EMAIL_RE.test(email))return aerr("اكتب إيميلك المسجّل");
+    const r=await authCall(b,{a:"forgot",email});if(!r)return;
+    authTab="reset";toast("إذا الإيميل مسجّل أرسلنا لك رمز الاستعادة ✉️");showAuth()},
+  async doReset(b){const code=toEn(gv("au-code")),pw=$("#au-pw").value,pw2=$("#au-pw2").value;aerr();
+    if(!/^\d{6}$/.test(code))return aerr("اكتب الرمز المكوّن من ٦ أرقام");
+    if(pw.length<8)return aerr("كلمة السر الجديدة ٨ أحرف على الأقل");
+    if(pw!==pw2)return aerr("كلمتا السر غير متطابقتين");
+    const r=await authCall(b,{a:"reset",email:authEmail,code,password:pw});if(!r)return;
+    if(r.ok){authTab="login";toast("تم تغيير كلمة السر، سجّل دخولك ✅");return showAuth()}
+    aerr(AMSG[r.error]||"تعذّر تغيير كلمة السر")},
   async copy(b){try{await navigator.clipboard.writeText(b.dataset.v);toast("تم نسخ الرقم")}catch{toast("انسخ الرقم يدوياً","bad")}},
 };
 app.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(b&&A[b.dataset.a])A[b.dataset.a](b,e)});
 const onIn=e=>{const t=e.target,m={pg:"pages",ph:"phone",ds:"desc",gr:"grade"}[t.id];
   if(m){F[m]=m==="pages"?parseInt(toEn(t.value))||0:t.value;save();if(m==="pages")upd();err(t.id)}};
 app.addEventListener("input",onIn);app.addEventListener("change",onIn);
-app.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="tc")A.track()});
+app.addEventListener("keydown",e=>{if(e.key!=="Enter")return;if(e.target.id==="tc")A.track();else if((e.target.id||"").startsWith("au-"))$("#au-go")?.click()});
 function save(){ls.set("draft",F)}
 
 /* ---------- storefront ---------- */
 const chipBtn=(s,i)=>`<button type="button" data-a="chip" data-s="${s}" class="${F.subject===s?"on":""}" aria-pressed="${F.subject===s}">${i} ${s}</button>`;
 function showHome(){
-  const ol=orders.get();
-  render(`<nav><div class="logo"><i>🎨</i>عروض كانفا</div><div style="display:flex;gap:10px;align-items:center">${ol.length?`<button class="lnk" data-a="goto">📦 طلباتي</button>`:""}<a class="lnk" href="${CFG.WA}" target="_blank" rel="noopener">💬 الدعم</a><button class="ib" data-a="theme" aria-label="تبديل الوضع">🌓</button></div></nav>
+  render(`<nav><div class="logo"><i>🎨</i>عروض كانفا</div><div style="display:flex;gap:10px;align-items:center"><button class="lnk" data-a="acct">${user?"👤 "+esc(user.name.split(" ")[0]):"دخول"}</button><a class="lnk" href="${CFG.WA}" target="_blank" rel="noopener">💬 الدعم</a><button class="ib" data-a="theme" aria-label="تبديل الوضع">🌓</button></div></nav>
   <section class="hero"><div class="pill">✨ تصاميم احترافية على كانفا</div><h1>عرضك التقديمي، <span>مصمَّم على كانفا</span> حسب طلبك</h1>
   <p>اكتب موضوع العرض والمادة والصف، ونرجّع لك عرض مرتب وجاهز بأقل سعر.</p>
   <div class="cta"><button class="btn" data-a="order" data-t="small">اطلب عرضك الآن</button></div>
@@ -178,15 +214,14 @@ function showHome(){
   <details><summary>متى أدفع؟</summary><p>بعد ما نرسل لك رابط العرض وتشوفه، مو قبل.</p></details>
   <details><summary>أي المواد والصفوف متوفرة؟</summary><p>كل المواد من أول ابتدائي إلى ثالث ثانوي، ولو موضوعك غير ذلك اختر "غير ذلك" واكتب وصفه.</p></details>
   <details><summary>كيف أعرف حالة طلبي؟</summary><p>بعد الطلب يظهر لك رقم طلب، حطه في خانة التتبّع في أي وقت ومن أي جهاز.</p></details>
-  ${ol.length?`<h2 class="t" id="mine">📦 طلباتي</h2><p style="text-align:center;color:var(--mu);margin:-8px 0 14px">طلعت من الموقع بالغلط؟ طلباتك محفوظة هنا، افتح طلبك وتابعه أو استلم عرضك.</p>${ol.map(o=>`<div class="card oc" style="margin-bottom:10px" data-id="${esc(o.id)}"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div><b style="font-family:monospace;font-size:18px;letter-spacing:2px">#${esc(o.id)}</b><div style="color:var(--mu);font-size:13px">${new Date(o.at).toLocaleDateString("ar-SA")}${o.total?" · "+o.total+" ريال":""}</div></div><span class="tag st">…</span></div><div style="display:flex;gap:8px;margin-top:12px"><button class="btn sm oo" data-a="open" data-id="${esc(o.id)}" style="flex:1">فتح الطلب</button><button class="btn s sm" data-a="rm" data-id="${esc(o.id)}">إزالة</button></div></div>`).join("")}`:""}
+  ${user?`<h2 class="t" id="mine">📦 طلباتي</h2><div id="mylist"><div class="sk"></div></div>`:""}
   <div class="card" style="text-align:center;margin-top:26px"><div style="font-size:34px">🛟</div><b style="font-size:18px">الدعم الفني</b><p style="margin:6px 0 14px;color:var(--mu)">عندك استفسار أو مشكلة؟ تواصل معنا على واتساب.</p><a class="btn" href="${CFG.WA}" target="_blank" rel="noopener">💬 تواصل مع الدعم الفني</a></div>
   <footer>© عروض كانفا حسب الطلب</footer>`);
-  if(db)ol.forEach(async o=>{try{const s=await api.status(o.id),n=stepOf(s.found?s:null),c=app.querySelector(`.oc[data-id="${o.id}"]`);if(!c)return;
-    c.querySelector(".st").textContent=["","تم استلام الطلب","جاري التصميم","جاهز للدفع 💳","تم التسليم ✅"][n];
-    c.querySelector(".oo").textContent=n===4?"📥 استلام العرض":n===3?"👀 شاهد المعاينة":"فتح الطلب"}catch{}});
+  loadMine();
 }
 
 function showForm(){
+  if(!user){after="form";authTab="login";go("auth");return}
   if(db)fetch(API+"?id=WARMUP&t="+Date.now()).catch(()=>{});
   const big=F.type==="big",sb=F.subject;
   render(`<button class="back" data-a="home">→ رجوع</button><h2 class="ft">اطلب عرضك</h2>
@@ -194,7 +229,7 @@ function showForm(){
   <label class="l">نوع العرض</label>
   <div class="seg" role="group"><button type="button" data-a="seg" data-t="small" class="${big?"":"on"}" aria-pressed="${!big}">صغير<small>${CFG.BASE} ريال · حتى ١٠ صفحات · تعديل مجاني</small></button><button type="button" data-a="seg" data-t="big" class="${big?"on":""}" aria-pressed="${big}">كبير<small>+${CFG.PER} ريال لكل صفحة زيادة · ٣ تعديلات مجانية</small></button></div>
   <div id="pgw" class="${big?"":"hid"}"><label class="l" for="pg">عدد الصفحات</label><div class="cnt"><button type="button" data-a="pg" data-d="-1" aria-label="أقل">−</button><input id="pg" inputmode="numeric" value="${F.pages}"><button type="button" data-a="pg" data-d="1" aria-label="أكثر">+</button></div><div class="fe" id="e-pg"></div></div>
-  <label class="l" for="ph">رقم الجوال</label><input id="ph" type="tel" inputmode="numeric" placeholder="05xxxxxxxx" maxlength="10" dir="ltr" style="text-align:right" value="${esc(F.phone)}" autocomplete="tel"><div class="fe" id="e-ph"></div>
+  <label class="l">الطلب باسم</label><div class="card" style="padding:12px 16px">👤 ${esc(user.name)} · <span dir="ltr">${esc(user.phone)}</span></div>
   <label class="l">المادة الدراسية للعرض</label>
   <div class="chips" id="sb">${SUBJ.map(([s,i])=>chipBtn(s,i)).join("")}</div><div class="fe" id="e-sb"></div>
   <div id="grw" class="${sb&&sb!=="غير ذلك"?"":"hid"}"><label class="l" for="gr">الصف الدراسي</label>
@@ -208,7 +243,6 @@ function upd(){const p=Math.max(11,F.pages||0),big=F.type==="big";$("#tot").text
 function err(k,m=""){const e=$("#e-"+k);if(e)e.textContent=m;const i=$("#"+k);if(i)i.setAttribute("aria-invalid",!!m)}
 function validate(){const e={},big=F.type==="big";
   if(big&&!(F.pages>CFG.INCL))e.pg="عدد الصفحات لازم يكون أكثر من ١٠";
-  if(!/^05\d{8}$/.test(toEn(F.phone).trim()))e.ph="اكتب رقم جوال صحيح يبدأ بـ 05 (١٠ أرقام)";
   if(!F.subject)e.sb="اختر المادة الدراسية";
   else if(F.subject!=="غير ذلك"&&!F.grade)e.gr="اختر الصف الدراسي";
   if(F.desc.trim().length<5)e.ds="اكتب وصف العرض (٥ أحرف على الأقل)";return e}
@@ -219,7 +253,8 @@ async function submit(){
   busy=true;const b=$("#go");b.disabled=true;b.textContent="جاري الإرسال...";
   try{
     const big=F.type==="big",pages=big?F.pages:10;
-    const r=await api.post({a:"create",order:{phone:toEn(F.phone).trim(),type:F.type,pages,subject:F.subject,grade:F.subject==="غير ذلك"?"":F.grade,desc:F.desc.trim()}});
+    const r=await api.post({a:"create",token:tok.get(),order:{type:F.type,pages,subject:F.subject,grade:F.subject==="غير ذلك"?"":F.grade,desc:F.desc.trim()}});
+    if(r&&r.error==="login"){tok.set("");user=null;after="form";toast("سجّل دخولك أولاً","bad");return go("auth")}
     if(!r||!r.id)throw 0;
     ls.set("my",{id:r.id,total:r.total});orders.add(r.id,r.total);ls.set("draft",null);F=fresh();go("status");
   }catch{toast("تعذّر إرسال الطلب، حاول مرة ثانية","bad");const b2=$("#go");if(b2){b2.disabled=false;b2.textContent="إتمام الطلب"}}
@@ -239,6 +274,55 @@ function showStatus(){
   let last="",fin=false;const poll=async()=>{try{const s=await api.status(my.id),j=JSON.stringify(s);if(s.paid)fin=true;if(j===last)return;last=j;draw(s.found?s:null,true)}catch{}};
   if(db){poll();const t=setInterval(()=>{if(!document.hidden&&!fin)poll()},10000);unsubs.push(()=>clearInterval(t))}
 }
+
+/* ---------- الحسابات ---------- */
+let user=null,after=null,authTab="login",authEmail="";
+const tok={get:()=>ls.get("tok",""),set:v=>ls.set("tok",v)};
+const EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const AMSG={exists:"هذا الإيميل مسجّل مسبقاً، سجّل دخولك",toomany:"محاولات كثيرة، حاول بعد قليل",invalid:"تأكد من البيانات المدخلة",bad:"الإيميل أو كلمة السر غير صحيحة",badcode:"الرمز غير صحيح أو منتهي",wait:"انتظر دقيقة قبل إعادة الإرسال",login:"سجّل دخولك أولاً"};
+const gv=id=>($("#"+id)?.value||"").trim();
+function aerr(m){const e=$("#e-au");if(e)e.textContent=m||""}
+async function authCall(b,p){const t=b.textContent;b.disabled=true;b.textContent="لحظة...";
+  try{return await api.post(p)}catch{toast("تعذّر الاتصال، حاول مرة ثانية","bad");return null}
+  finally{if(b.isConnected){b.disabled=false;b.textContent=t}}}
+function done(r){tok.set(r.token);user=r.user;authEmail="";const to=after||"home";after=null;toast("أهلاً "+user.name.split(" ")[0]+" 👋");go(to)}
+function showAuth(){
+  const m=authTab,em=esc(authEmail),E=`<label class="l" for="au-email">الإيميل</label><input id="au-email" type="email" dir="ltr" autocomplete="email" placeholder="name@example.com" value="${em}" style="text-align:right">`;
+  const PW=(id,l,ac)=>`<label class="l" for="${id}">${l}</label><input id="${id}" type="password" autocomplete="${ac}">`;
+  const V={
+   login:["تسجيل الدخول",E+PW("au-pw","كلمة السر","current-password"),"doLogin","دخول",`<button class="lnk" data-a="authgo" data-m="forgot">نسيت كلمة السر؟</button><button class="lnk" data-a="authgo" data-m="signup">إنشاء حساب جديد</button>`],
+   signup:["إنشاء حساب",`<label class="l" for="au-name">الاسم</label><input id="au-name" autocomplete="name" placeholder="اسمك الكامل">`+E+`<label class="l" for="au-phone">رقم الجوال</label><input id="au-phone" type="tel" inputmode="numeric" maxlength="10" dir="ltr" placeholder="05xxxxxxxx" autocomplete="tel" style="text-align:right">`+PW("au-pw","كلمة السر (٨ أحرف على الأقل)","new-password")+PW("au-pw2","تأكيد كلمة السر","new-password"),"doSignup","إنشاء الحساب",`<button class="lnk" data-a="authgo" data-m="login">عندي حساب؟ سجّل دخولك</button>`],
+   verify:["تفعيل الحساب",`<p style="color:var(--mu);margin:0">أرسلنا رمز تحقق من ٦ أرقام إلى <b dir="ltr">${em}</b>. افتح إيميلك (وشوف مجلد Spam لو ما لقيته).</p><label class="l" for="au-code">رمز التحقق</label><input id="au-code" class="otp" inputmode="numeric" maxlength="6" dir="ltr" autocomplete="one-time-code" placeholder="••••••">`,"doVerify","تفعيل",`<button class="lnk" data-a="doResend">إعادة إرسال الرمز</button><button class="lnk" data-a="authgo" data-m="signup">تغيير الإيميل</button>`],
+   forgot:["نسيت كلمة السر",`<p style="color:var(--mu);margin:0">اكتب إيميلك المسجّل وبنرسل لك رمز لإعادة تعيين كلمة السر.</p>`+E,"doForgot","إرسال الرمز",`<button class="lnk" data-a="authgo" data-m="login">رجوع لتسجيل الدخول</button>`],
+   reset:["كلمة سر جديدة",`<p style="color:var(--mu);margin:0">أدخل الرمز اللي وصل إلى <b dir="ltr">${em}</b> وكلمة السر الجديدة.</p><label class="l" for="au-code">رمز الاستعادة</label><input id="au-code" class="otp" inputmode="numeric" maxlength="6" dir="ltr" autocomplete="one-time-code" placeholder="••••••">`+PW("au-pw","كلمة السر الجديدة","new-password")+PW("au-pw2","تأكيد كلمة السر","new-password"),"doReset","تغيير كلمة السر",`<button class="lnk" data-a="authgo" data-m="forgot">إعادة إرسال الرمز</button>`]
+  }[m]||[];
+  render(`<button class="back" data-a="home">→ رجوع</button><h2 class="ft">${V[0]}</h2>
+  ${after==="form"&&m==="login"?`<div class="note">سجّل دخولك أو أنشئ حساب عشان تقدر تطلب 🎨</div>`:""}
+  <div class="card" style="margin-top:14px">${V[1]}<div class="fe" id="e-au" style="font-size:14px;margin-top:10px"></div>
+  <button class="btn" id="au-go" data-a="${V[2]}" style="margin-top:6px">${V[3]}</button><div class="alinks">${V[4]}</div></div>`);
+  setTimeout(()=>($("#au-email")||$("#au-code")||$("#au-name"))?.focus(),50);
+}
+function showAccount(){
+  if(!user){go("auth");return}
+  render(`<button class="back" data-a="home">→ رجوع</button><h2 class="ft">حسابي</h2>
+  <div class="card" style="margin-top:14px"><p style="margin:0"><b>👤 ${esc(user.name)}</b></p><p style="margin:4px 0;color:var(--mu)" dir="ltr">${esc(user.email)}</p><p style="margin:0;color:var(--mu)" dir="ltr">${esc(user.phone)}</p>
+  <button class="btn s" data-a="logout" style="margin-top:16px">تسجيل الخروج</button></div>
+  <a class="btn" style="margin-top:14px" href="${CFG.WA}" target="_blank" rel="noopener">💬 تواصل مع الدعم الفني</a>`);
+}
+async function loadMine(){
+  const box=$("#mylist");if(!box||!user||!db)return;
+  try{const r=await api.post({a:"mine",token:tok.get()});if(!$("#mylist"))return;
+    if(r.error==="login"){tok.set("");user=null;return route()}
+    const L=r.orders||[],lab=["","تم استلام الطلب","جاري التصميم","جاهز للدفع 💳","تم التسليم ✅"];
+    box.innerHTML=L.length?L.map(o=>{const n=stepOf(o);return `<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><div><b style="font-family:monospace;font-size:18px;letter-spacing:2px">#${esc(o.id)}</b><div style="color:var(--mu);font-size:13px">${new Date(o.at).toLocaleDateString("ar-SA")} · ${esc(o.total)} ريال</div></div><span class="tag">${lab[n]}</span></div><button class="btn sm" style="margin-top:12px;width:100%" data-a="open" data-id="${esc(o.id)}" data-total="${esc(o.total)}">${n===4?"📥 استلام العرض":n===3?"👀 شاهد المعاينة":"فتح الطلب"}</button></div>`}).join(""):`<p style="text-align:center;color:var(--mu)">ما عندك طلبات بعد، اطلب أول عرض لك 🎨</p>`;
+  }catch{const b=$("#mylist");if(b)b.innerHTML=`<p style="text-align:center;color:var(--mu)">تعذّر تحميل طلباتك</p>`}
+}
+async function restore(){
+  if(!tok.get()||!db)return;
+  try{const r=await api.post({a:"me",token:tok.get()});if(r&&r.user)user=r.user;else if(r&&r.error==="login")tok.set("")}catch{}
+  if(view==="home"||view==="account")route();
+}
+const ready=restore();
 
 route();
 if(db)fetch(API+"?id=WARMUP&t="+Date.now()).catch(()=>{});
