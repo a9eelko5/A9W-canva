@@ -144,9 +144,9 @@ const A={
   home:()=>go("home"),
   theme(){const d=document.documentElement,cur=d.dataset.theme||(matchMedia("(prefers-color-scheme:dark)").matches?"dark":"light"),n=cur==="dark"?"light":"dark";d.dataset.theme=n;ls.set("theme",n)},
   async order(b){F.type=b.dataset.t;ls.set("draft",F);await ready;if(!user){after="form";authTab="login";return go("auth")}go("form")},
-  track(){const c=toEn($("#tc").value).trim().toUpperCase();if(!/^[A-Z0-9]{6}$/.test(c))return toast("رقم الطلب لازم يكون ٦ خانات","bad");ls.set("my",{id:c,total:0});orders.add(c,0);go("status")},
+  track(){const c=toEn($("#tc").value).trim().toUpperCase();if(!/^[A-Z0-9]{6}$/.test(c))return toast("رقم الطلب لازم يكون ٦ خانات","bad");ls.set("my",{id:c,total:0});orders.add(c,0);backA="home";go("status")},
   mine:()=>go("status"),
-  open(b){ls.set("my",{id:b.dataset.id,total:Number(b.dataset.total)||0});go("status")},
+  open(b){backA=view==="account"?"acct":"home";ls.set("my",{id:b.dataset.id,total:Number(b.dataset.total)||0});go("status")},
   goto(){$("#mine")?.scrollIntoView({behavior:"smooth"})},
   seg(b){F.type=b.dataset.t;save();b.parentNode.querySelectorAll("button").forEach(x=>{x.classList.toggle("on",x===b);x.setAttribute("aria-pressed",x===b)});$("#pgw").classList.toggle("hid",F.type!=="big");upd()},
   chip(b){F.subject=b.dataset.s;save();b.parentNode.querySelectorAll("button").forEach(x=>{x.classList.toggle("on",x===b);x.setAttribute("aria-pressed",x===b)});$("#grw").classList.toggle("hid",F.subject==="غير ذلك");err("sb")},
@@ -265,7 +265,7 @@ async function submit(){
     const r=await api.post({a:"create",token:tok.get(),order:{type:F.type,pages,subject:F.subject,grade:F.subject==="غير ذلك"?"":F.grade,desc:F.desc.trim()}});
     if(r&&r.error==="login"){tok.set("");user=null;after="form";toast("سجّل دخولك أولاً","bad");return go("auth")}
     if(!r||!r.id)throw 0;
-    ls.set("my",{id:r.id,total:r.total});orders.add(r.id,r.total);ls.set("draft",null);F=fresh();go("status");
+    ls.set("my",{id:r.id,total:r.total});orders.add(r.id,r.total);ls.set("draft",null);F=fresh();backA="home";go("status");
   }catch{toast("تعذّر إرسال الطلب، حاول مرة ثانية","bad");const b2=$("#go");if(b2){b2.disabled=false;b2.textContent="إتمام الطلب"}}
   finally{busy=false}
 }
@@ -277,7 +277,7 @@ function showStatus(){
     const body=n===4?`<div class="ic">✓</div><h2>تم الدفع وتسليم العرض</h2><p style="color:var(--mu)">شكراً لك! هذا رابط عرضك:</p><a class="btn" href="${fin}" target="_blank" rel="noopener">فتح العرض</a>`
     :n===3?`<div class="ic">✓</div><h2>عرضك جاهز!</h2><p style="color:var(--mu)">شاهد معاينة العرض أولاً، ثم ادفع لاستلام نسختك النهائية.</p><p style="color:var(--mu);font-size:14px">ما عجبك؟ نسوي لك عرض جديد </p><a class="btn s" href="${link}" target="_blank" rel="noopener">مشاهدة المعاينة</a><div class="code" style="letter-spacing:0;font-size:24px">${esc(s.price||my.total)} ريال</div><p style="color:var(--mu)">${esc(CFG.PAY)}</p>`
     :`<div class="ic w">${n===2?"٢":"١"}</div><h2>${n===2?"جاري تصميم عرضك":"تم استلام طلبك"}</h2><p style="color:var(--mu)">${n===2?"فريقنا يشتغل على عرضك الحين.":"بنبدأ فيه قريباً."} أول ما يجهز يظهر الرابط هنا تلقائياً.</p>`;
-    render(`<button class="back" data-a="home">→ الرئيسية</button><div class="card" style="text-align:center">${sp}${body}
+    render(`<button class="back" data-a="${backA}">→ ${backA==="acct"?"حسابي":"الرئيسية"}</button><div class="card" style="text-align:center">${sp}${body}
     <div style="margin-top:18px;color:var(--mu);font-size:14px">رقم طلبك — احتفظ فيه للمتابعة</div><div class="code">${esc(my.id)}</div><button class="btn s sm" data-a="copy" data-v="${esc(my.id)}">📋 نسخ الرقم</button></div><a class="btn s" style="margin-top:14px" href="${CFG.WA}" target="_blank" rel="noopener">تحتاج مساعدة؟ تواصل مع الدعم الفني</a>`,keep)};
   draw(null);
   let last="",fin=false;const poll=async()=>{try{const s=await api.status(my.id),j=JSON.stringify(s);if(s.paid)fin=true;if(j===last)return;last=j;draw(s.found?s:null,true)}catch{}};
@@ -285,7 +285,7 @@ function showStatus(){
 }
 
 /* ---------- الحسابات ---------- */
-let user=null,after=null,authTab="login",authEmail="";
+let user=null,after=null,authTab="login",authEmail="",backA="home";
 const tok={get:()=>ls.get("tok",""),set:v=>ls.set("tok",v)};
 const EMAIL_RE=/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const AMSG={exists:"هذا الإيميل مسجّل مسبقاً، سجّل دخولك",toomany:"محاولات كثيرة، حاول بعد قليل",invalid:"تأكد من البيانات المدخلة",bad:"الإيميل أو كلمة السر غير صحيحة",badcode:"الرمز غير صحيح أو منتهي",wait:"انتظر دقيقة قبل إعادة الإرسال",login:"سجّل دخولك أولاً"};
@@ -313,10 +313,11 @@ function showAuth(){
 }
 function showAccount(){
   if(!user){go("auth");return}
-  render(`<button class="back" data-a="home">→ رجوع</button><h2 class="ft">حسابي</h2>
-  <div class="card" style="margin-top:14px"><p style="margin:0"><b>${esc(user.name)}</b></p><p style="margin:4px 0;color:var(--mu)" dir="ltr">${esc(user.email)}</p><p style="margin:0;color:var(--mu)" dir="ltr">${esc(user.phone)}</p>
-  <button class="btn s" data-a="logout" style="margin-top:16px">تسجيل الخروج</button></div>
-  <a class="btn" style="margin-top:14px" href="${CFG.WA}" target="_blank" rel="noopener">تواصل مع الدعم الفني</a>`);
+  render(`<button class="back" data-a="home">→ الرئيسية</button><h2 class="ft">حسابي</h2>
+  <div class="card" style="margin-top:14px"><b>${esc(user.name)}</b><p style="margin:4px 0 0;color:var(--mu)" dir="ltr">${esc(user.email)}</p><p style="margin:0;color:var(--mu)" dir="ltr">${esc(user.phone)}</p></div>
+  <h2 class="t" id="mine">طلباتي</h2><div id="mylist"><div class="sk"></div></div>
+  <div class="grid g2" style="margin-top:30px"><a class="btn s" href="${CFG.WA}" target="_blank" rel="noopener">الدعم الفني</a><button class="btn s" data-a="logout">تسجيل الخروج</button></div>`);
+  loadMine();
 }
 async function loadMine(){
   const box=$("#mylist");if(!box||!user||!db)return;
