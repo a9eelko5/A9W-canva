@@ -286,7 +286,7 @@ function showStatus(){
     render(`<button class="back" data-a="home">→ الرئيسية</button><div class="card" style="text-align:center">${sp}${body}
     <div style="margin-top:18px;color:var(--mu);font-size:14px">رقم طلبك — احتفظ فيه للمتابعة</div><div class="code">${esc(my.id)}</div><button class="btn s sm" data-a="copy" data-v="${esc(my.id)}">📋 نسخ الرقم</button></div><a class="btn s" style="margin-top:14px" href="${CFG.WA}" target="_blank" rel="noopener">تحتاج مساعدة؟ تواصل مع الدعم الفني</a>`,keep);
 
-    // تشغيل دالة ميسر وتفعيل أبل باي
+    // تشغيل دالة ميسر وتفعيل أبل باي بالمفتاح المباشر
     if (n === 3 && window.Moyasar) {
       setTimeout(() => {
         const formContainer = $('.mysr-form');
@@ -296,7 +296,7 @@ function showStatus(){
             amount: parseInt(s.price || my.total) * 100, // ضرب المبلغ في 100 لتحويله لهللة
             currency: 'SAR',
             description: 'طلب A9W رقم: ' + my.id,
-            publishable_api_key: 'pk_test_ضع_المفتاح_التجريبي_هنا', 
+            publishable_api_key: 'pk_live_GjfFUZoDgFiv5mfAYHemCMWCdyqKqhTNQS93rDqK', 
             callback_url: 'https://a9wcanvastore.netlify.app/', 
             methods: ['applepay', 'creditcard']
           });
