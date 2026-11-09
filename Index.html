@@ -277,6 +277,7 @@ function showStatus(){
     :`<div class="ic w">${n===2?"٢":"١"}</div><h2>${n===2?"جاري تصميم عرضك":"تم استلام طلبك"}</h2><p style="color:var(--mu)">${n===2?"فريقنا يشتغل على عرضك الحين.":"بنبدأ فيه قريباً."} أول ما يجهز يظهر الرابط هنا تلقائياً.</p>`;
     render(`<button class="back" data-a="home">→ الرئيسية</button><div class="card" style="text-align:center">${sp}${body}
     <div style="margin-top:18px;color:var(--mu);font-size:14px">رقم طلبك — احتفظ فيه للمتابعة</div><div class="code">${esc(my.id)}</div><button class="btn s sm" data-a="copy" data-v="${esc(my.id)}">📋 نسخ الرقم</button></div><a class="btn s" style="margin-top:14px" href="${CFG.WA}" target="_blank" rel="noopener">تحتاج مساعدة؟ تواصل مع الدعم الفني</a>`,keep)};
+  <div class="mysr-form"></div>
   draw(null);
   let last="",fin=false;const poll=async()=>{try{const s=await api.status(my.id),j=JSON.stringify(s);if(s.paid)fin=true;if(j===last)return;last=j;draw(s.found?s:null,true)}catch{}};
   if(db){poll();const t=setInterval(()=>{if(!document.hidden&&!fin)poll()},10000);unsubs.push(()=>clearInterval(t))}
@@ -336,3 +337,17 @@ if(db)fetch(API+"?id=WARMUP&t="+Date.now()).catch(()=>{});
 </script>
 </body>
 </html>
+<!-- مكتبة ميسر للدفع -->
+<link rel="stylesheet" href="https://cdn.moyasar.com/mpf/1.14.0/moyasar.css" />
+<script src="https://cdn.moyasar.com/mpf/1.14.0/moyasar.js"></script>
+<script>
+  Moyasar.init({
+    element: '.mysr-form',
+    amount: 10000, // تنبيه: المبلغ يُكتب بالهللة! (10000 هللة = 100 ريال)
+    currency: 'SAR',
+    description: 'تصميم عرض تقديمي - متجر A9W',
+    publishable_api_key: 'pk_test_ضع_المفتاح_هنا', // انسخ الـ Publishable Key من لوحة ميسر
+    callback_url: 'https://a9wcanvastore.netlify.app/success.html', // الصفحة التي سيتحول لها العميل بعد الدفع
+    methods: ['applepay'] // يمكنك إضافة 'creditcard' بجانبها إذا أردت تفعيل البطاقات أيضاً
+  });
+</script>
