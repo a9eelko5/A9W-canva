@@ -106,6 +106,8 @@ textarea{min-height:130px;resize:vertical}
 .tag{display:inline-block;padding:2px 12px;border:1.5px solid var(--ln);border-radius:6px;font-size:13px;font-weight:600;margin:2px 0 2px 4px}
 .alinks{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px;margin-top:10px}
 .otp{text-align:center;letter-spacing:8px;font-size:24px;font-family:monospace}
+.btn.s.out{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 55%,var(--bd))}
+.btn.s.out:active{background:color-mix(in srgb,var(--bad) 12%,var(--card))}
 </style>
 </head>
 <body>
@@ -316,7 +318,7 @@ function showAccount(){
   render(`<button class="back" data-a="home">→ الرئيسية</button><h2 class="ft">حسابي</h2>
   <div class="card" style="margin-top:14px"><b>${esc(user.name)}</b><p style="margin:4px 0 0;color:var(--mu)" dir="ltr">${esc(user.email)}</p><p style="margin:0;color:var(--mu)" dir="ltr">${esc(user.phone)}</p></div>
   <h2 class="t" id="mine">طلباتي</h2><div id="mylist"><div class="sk"></div></div>
-  <div class="grid g2" style="margin-top:30px"><a class="btn s" href="${CFG.WA}" target="_blank" rel="noopener">الدعم الفني</a><button class="btn s" data-a="logout">تسجيل الخروج</button></div>`);
+  <div class="grid g2" style="margin-top:30px"><a class="btn s" href="${CFG.WA}" target="_blank" rel="noopener">الدعم الفني</a><button class="btn s out" data-a="logout">تسجيل الخروج</button></div>`);
   loadMine();
 }
 async function loadMine(){
