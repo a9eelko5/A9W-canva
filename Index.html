@@ -8,11 +8,6 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="preconnect" href="https://script.google.com">
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap" onload="this.onload=null;this.rel='stylesheet'"><noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=El+Messiri:wght@600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=Space+Grotesk:wght@700&display=swap"></noscript>
-
-<!-- مكتبة ميسر للدفع (أبل باي والبطاقات) -->
-<link rel="stylesheet" href="https://cdn.moyasar.com/mpf/1.14.0/moyasar.css" />
-<script src="https://cdn.moyasar.com/mpf/1.14.0/moyasar.js"></script>
-
 <style>
 :root{--bg:#f4efe6;--card:#fffdf8;--tx:#1d1b18;--mu:#6e675c;--pr:#e5531f;--bd:#ddd5c6;--soft:#ece5d8;--ok:#2e7d4f;--bad:#c0392b;--sh:none;--r:14px;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -277,33 +272,11 @@ function showStatus(){
   const my=ls.get("my");if(!my){go("home");return}
   const draw=(s,keep)=>{const n=stepOf(s),link=esc(s?.link),fin=esc(s?.final||s?.link);
     const sp=`<div class="stepper">${STEPS.map((t,i)=>{const d=i+1<n||n===4;return `<div class="${d?"d":i+1===n?"c":""}"><i>${d?"✓":i+1}</i>${t}</div>`}).join("")}</div>`;
-    
-    // حاوية mysr-form لدعم الدفع
     const body=n===4?`<div class="ic">✓</div><h2>تم الدفع وتسليم العرض</h2><p style="color:var(--mu)">شكراً لك! هذا رابط عرضك:</p><a class="btn" href="${fin}" target="_blank" rel="noopener">فتح العرض</a>`
-    :n===3?`<div class="ic">✓</div><h2>عرضك جاهز!</h2><p style="color:var(--mu)">شاهد معاينة العرض أولاً، ثم ادفع لاستلام نسختك النهائية.</p><a class="btn s" href="${link}" target="_blank" rel="noopener" style="margin-bottom:20px">مشاهدة المعاينة</a><div class="code" style="letter-spacing:0;font-size:24px">${esc(s.price||my.total)} ريال</div><div class="mysr-form"></div>`
+    :n===3?`<div class="ic">✓</div><h2>عرضك جاهز!</h2><p style="color:var(--mu)">شاهد معاينة العرض أولاً، ثم ادفع لاستلام نسختك النهائية.</p><p style="color:var(--mu);font-size:14px">ما عجبك؟ نسوي لك عرض جديد </p><a class="btn s" href="${link}" target="_blank" rel="noopener">مشاهدة المعاينة</a><div class="code" style="letter-spacing:0;font-size:24px">${esc(s.price||my.total)} ريال</div><p style="color:var(--mu)">${esc(CFG.PAY)}</p>`
     :`<div class="ic w">${n===2?"٢":"١"}</div><h2>${n===2?"جاري تصميم عرضك":"تم استلام طلبك"}</h2><p style="color:var(--mu)">${n===2?"فريقنا يشتغل على عرضك الحين.":"بنبدأ فيه قريباً."} أول ما يجهز يظهر الرابط هنا تلقائياً.</p>`;
-    
     render(`<button class="back" data-a="home">→ الرئيسية</button><div class="card" style="text-align:center">${sp}${body}
-    <div style="margin-top:18px;color:var(--mu);font-size:14px">رقم طلبك — احتفظ فيه للمتابعة</div><div class="code">${esc(my.id)}</div><button class="btn s sm" data-a="copy" data-v="${esc(my.id)}">📋 نسخ الرقم</button></div><a class="btn s" style="margin-top:14px" href="${CFG.WA}" target="_blank" rel="noopener">تحتاج مساعدة؟ تواصل مع الدعم الفني</a>`,keep);
-
-    // تشغيل دالة ميسر وتفعيل أبل باي بالمفتاح المباشر
-    if (n === 3 && window.Moyasar) {
-      setTimeout(() => {
-        const formContainer = $('.mysr-form');
-        if (formContainer && !formContainer.innerHTML) {
-          Moyasar.init({
-            element: '.mysr-form',
-            amount: parseInt(s.price || my.total) * 100, // ضرب المبلغ في 100 لتحويله لهللة
-            currency: 'SAR',
-            description: 'طلب A9W رقم: ' + my.id,
-            publishable_api_key: 'pk_live_GjfFUZoDgFiv5mfAYHemCMWCdyqKqhTNQS93rDqK', 
-            callback_url: 'https://a9wcanvastore.netlify.app/', 
-            methods: ['applepay', 'creditcard']
-          });
-        }
-      }, 50);
-    }
-  };
+    <div style="margin-top:18px;color:var(--mu);font-size:14px">رقم طلبك — احتفظ فيه للمتابعة</div><div class="code">${esc(my.id)}</div><button class="btn s sm" data-a="copy" data-v="${esc(my.id)}">📋 نسخ الرقم</button></div><a class="btn s" style="margin-top:14px" href="${CFG.WA}" target="_blank" rel="noopener">تحتاج مساعدة؟ تواصل مع الدعم الفني</a>`,keep)};
   draw(null);
   let last="",fin=false;const poll=async()=>{try{const s=await api.status(my.id),j=JSON.stringify(s);if(s.paid)fin=true;if(j===last)return;last=j;draw(s.found?s:null,true)}catch{}};
   if(db){poll();const t=setInterval(()=>{if(!document.hidden&&!fin)poll()},10000);unsubs.push(()=>clearInterval(t))}
